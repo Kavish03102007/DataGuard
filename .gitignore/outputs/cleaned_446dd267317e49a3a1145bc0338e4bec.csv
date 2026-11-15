@@ -1,0 +1,17 @@
+order_id,region,product,units_sold,unit_price,customer_rating,notes
+1001,North,A,4,120,4.2,ok
+1002,South,B,8,150,3.8,repeat
+1003,East,A,5,120,4.5,new
+1004,West,C,7,200,4.1,
+1005,North,B,6,150,4.0,loyal
+1006,South,A,9,120,3.9,new
+1007,East,C,4,200,4.8,repeat
+1008,West,B,8,150,3.7,ok
+1009,North,A,5,120,4.1,new
+1010,South,C,7,200,4.4,loyal
+1011,East,B,6,150,4.1,repeat
+1012,West,A,10,120,3.6,new
+1013,North,C,5,200,4.9,new
+1014,South,B,8,150,3.8,loyal
+1015,East,A,4,120,4.3,ok
+1016,East,C,500,200,1.0,outlier

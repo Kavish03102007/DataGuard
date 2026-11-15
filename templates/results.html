@@ -1,0 +1,417 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>DataGuard Analysis</title>
+
+    <link rel="stylesheet" href="{{url_for('static',filename='style.css')}}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body>
+
+<nav>
+    <a class="brand" href="/">Data<span>Guard</span></a>
+    <a href="/">← New analysis</a>
+</nav>
+
+<main class="wrap wide">
+
+    <!-- PAGE HEADING -->
+    <div class="heading">
+        <div>
+            <label>ANALYSIS REPORT</label>
+            <h1>Dataset overview</h1>
+            <p>{{filename}}</p>
+        </div>
+
+        <b class="pill">ANALYSIS COMPLETE</b>
+    </div>
+
+
+    <!-- QUALITY METRICS -->
+    <section class="metrics">
+
+        <div>
+            <small>QUALITY SCORE</small>
+            <strong>{{r.score}}<i>/100</i></strong>
+            <em>Project-defined indicator</em>
+        </div>
+
+        <div>
+            <small>ROWS</small>
+            <strong>{{"{:,}".format(r.rows)}}</strong>
+            <em>Records analysed</em>
+        </div>
+
+        <div>
+            <small>MISSING CELLS</small>
+            <strong>{{r.missing_total}}</strong>
+            <em>Across all columns</em>
+        </div>
+
+        <div>
+            <small>DUPLICATE ROWS</small>
+            <strong>{{r.duplicates}}</strong>
+            <em>Exact row matches</em>
+        </div>
+
+    </section>
+
+
+    <!-- 01 DATA PROFILE -->
+    <section class="panel">
+
+        <label>01 / DATA PROFILE</label>
+        <h2>Column-level quality</h2>
+
+        <div class="scroll">
+            <table>
+                <tr>
+                    <th>Column</th>
+                    <th>Type</th>
+                    <th>Missing</th>
+                    <th>Missing %</th>
+                    <th>Unique</th>
+                </tr>
+
+                {% for x in r.profile %}
+                <tr>
+                    <td><b>{{x.name}}</b></td>
+                    <td>{{x.dtype}}</td>
+                    <td>{{x.missing}}</td>
+                    <td>{{x.missing_pct}}%</td>
+                    <td>{{x.unique}}</td>
+                </tr>
+                {% endfor %}
+
+            </table>
+        </div>
+
+    </section>
+
+
+    <!-- ORIGINAL DATASET PREVIEW -->
+    <section class="panel">
+        <label>DATASET PREVIEW / ORIGINAL UPLOAD</label>
+        <h2>First 15 records</h2>
+        <p class="muted">Showing {{preview_rows|length}} of {{preview_total}} original records. This preview is read-only and is not affected by cleaning.</p>
+        <div class="scroll preview-scroll">
+            <table class="preview-table">
+                <thead><tr>
+                    <th>Source row</th>
+                    {% for column in preview_columns %}<th>{{column}}</th>{% endfor %}
+                </tr></thead>
+                <tbody>
+                    {% for row in preview_rows %}
+                    <tr>
+                        <td>{{loop.index}}</td>
+                        {% for value in row %}<td>{{value}}</td>{% endfor %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+
+    <!-- COMPLETENESS AND ANOMALY COUNTS -->
+    <section class="columns">
+
+        <div class="panel">
+
+            <label>02 / COMPLETENESS</label>
+            <h2>Missing values by column</h2>
+
+            <canvas id="chart"></canvas>
+
+        </div>
+
+
+        <div class="panel">
+
+            <label>03 / ANOMALY DETECTION</label>
+            <h2>Records to review</h2>
+
+            <p class="statline">
+                Statistical (IQR / Z-score)
+                <b>{{r.stat_count}}</b>
+            </p>
+
+            <p class="statline">
+                Isolation Forest (ML)
+                <b>{{r.ml_count}}</b>
+            </p>
+
+            <p class="statline total">
+                Combined unique records
+                <b>{{r.anomaly_count}}</b>
+            </p>
+
+            <p class="muted">{{r.ml_status}}</p>
+
+            <p class="muted">
+                An anomaly is an unusual observation,
+                not proof of an error or fraud.
+            </p>
+
+        </div>
+
+    </section>
+
+
+    <!-- 04 ANOMALY INVESTIGATION -->
+    <section class="panel">
+
+        <label>04 / ANOMALY INVESTIGATION</label>
+        <h2>Flagged records</h2>
+
+        <p class="muted">
+            Review individual records identified by
+            statistical analysis and machine learning.
+        </p>
+
+        <a class="button secondary-button" href="{{url_for('download_anomalies', key=key)}}">Download anomaly report CSV ↓</a>
+
+        {% if r.anomaly_records %}
+
+        <div class="scroll">
+
+            <table>
+
+                <tr>
+                    <th>Row</th>
+                    <th>Severity</th>
+                    <th>Detection method</th>
+                    <th>Reason</th>
+                    <th>Record values</th>
+                </tr>
+
+                {% for item in r.anomaly_records %}
+
+                <tr>
+
+                    <td>
+                        <b>{{item.row_number}}</b>
+                    </td>
+
+                    <td>
+                        <span class="severity severity-{{item.severity|lower}}">{{item.severity}}</span>
+                        <div class="muted">{{item.severity_reason}}</div>
+                    </td>
+
+                    <td>
+                        {{item.methods | join(", ")}}
+                    </td>
+
+                    <td>
+                        {% for reason in item.reasons %}
+                            <div>{{reason}}</div>
+                        {% endfor %}
+                    </td>
+
+                    <td>
+                        {% for pair in item['values'] %}
+
+                            <b>{{pair.column}}</b>:
+                            {{pair.value}}
+
+                            {% if not loop.last %}
+                                <br>
+                            {% endif %}
+
+                        {% endfor %}
+                    </td>
+
+                </tr>
+
+                {% endfor %}
+
+            </table>
+
+        </div>
+
+        {% else %}
+
+            <p>No anomalous records detected.</p>
+
+        {% endif %}
+
+    </section>
+
+
+    <!-- 05 NUMERIC SUMMARY -->
+    <section class="panel">
+
+        <label>05 / NUMERIC SUMMARY</label>
+        <h2>Statistical checks</h2>
+
+        {% if r.stats %}
+
+        <div class="scroll">
+
+            <table>
+
+                <tr>
+                    <th>Column</th>
+                    <th>Min</th>
+                    <th>Mean</th>
+                    <th>Median</th>
+                    <th>Max</th>
+                    <th>IQR flags</th>
+                    <th>Z flags</th>
+                </tr>
+
+                {% for s in r.stats %}
+
+                <tr>
+                    <td><b>{{s.name}}</b></td>
+                    <td>{{s.min}}</td>
+                    <td>{{s.mean}}</td>
+                    <td>{{s.median}}</td>
+                    <td>{{s.max}}</td>
+                    <td>{{s.iqr}}</td>
+                    <td>{{s.z}}</td>
+                </tr>
+
+                {% endfor %}
+
+            </table>
+
+        </div>
+
+        {% else %}
+
+            <p>No numeric columns detected.</p>
+
+        {% endif %}
+
+    </section>
+
+
+    <!-- 06 CLEANING -->
+    <section class="panel">
+
+        <label>06 / HUMAN-IN-THE-LOOP CLEANING</label>
+        <h2>Review cleaning actions</h2>
+
+        <p class="muted">
+            Select the actions you approve.
+            They are applied to a copy, not the original upload.
+        </p>
+
+        <form method="post" action="/clean/{{key}}" class="checks">
+
+            <label>
+                <input type="checkbox" name="numeric_missing" checked>
+                <span>
+                    <b>Fill missing numeric values</b>
+                    <small>Use each column's median.</small>
+                </span>
+            </label>
+
+            <label>
+                <input type="checkbox" name="categorical_missing" checked>
+                <span>
+                    <b>Fill missing categories</b>
+                    <small>Use each column's most frequent value.</small>
+                </span>
+            </label>
+
+            <label>
+                <input type="checkbox" name="duplicates" checked>
+                <span>
+                    <b>Remove exact duplicate rows</b>
+                    <small>Keep the first occurrence.</small>
+                </span>
+            </label>
+
+            <label>
+                <input type="checkbox" name="trim_text" checked>
+                <span>
+                    <b>Trim text whitespace</b>
+                    <small>Remove leading and trailing spaces.</small>
+                </span>
+            </label>
+
+            <button type="submit">
+                Apply approved actions →
+            </button>
+
+        </form>
+
+    </section>
+
+
+    <!-- SCORE EXPLANATION -->
+    <p class="foot">
+        Score formula: 40% completeness +
+        25% uniqueness + 35% anomaly health.
+        This is a project-defined metric,
+        not an industry standard.
+    </p>
+
+
+    <footer>
+        DATAGUARD · DEMO RESULTS ARE STORED IN MEMORY
+    </footer>
+
+</main>
+
+
+<!-- MISSING VALUES CHART -->
+<script>
+
+new Chart(document.getElementById('chart'), {
+
+    type: 'bar',
+
+    data: {
+
+        labels: {{r.labels | tojson}},
+
+        datasets: [{
+
+            data: {{r.missing | tojson}},
+
+            backgroundColor: '#69a7a0',
+
+            borderRadius: 5
+
+        }]
+
+    },
+
+    options: {
+
+        responsive: true,
+
+        plugins: {
+
+            legend: {
+                display: false
+            }
+
+        },
+
+        scales: {
+
+            y: {
+                beginAtZero: true,
+                ticks: {
+                    precision: 0
+                }
+            }
+
+        }
+
+    }
+
+});
+
+</script>
+
+</body>
+</html>
